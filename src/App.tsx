@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/context/CartContext";
 import { ReviewProvider } from "@/context/ReviewContext";
 import { AuthProvider } from "@/context/AuthContext";
+import LandingPage from "./pages/LandingPage";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import ProductDetail from "./pages/ProductDetail";
@@ -28,7 +29,8 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/products" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/cart" element={<Cart />} />
