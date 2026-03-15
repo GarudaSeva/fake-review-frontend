@@ -19,7 +19,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          <Link to="/" className="text-sm text-muted-foreground transition-colors hover:text-foreground">Products</Link>
+          <Link to="/products" className="text-sm text-muted-foreground transition-colors hover:text-foreground">Products</Link>
           {user && !user.isAdmin && (
             <Link to="/my-reviews" className="text-sm text-muted-foreground transition-colors hover:text-foreground">My Reviews</Link>
           )}
