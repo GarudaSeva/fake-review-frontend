@@ -1,12 +1,34 @@
-import { products } from "@/data/mockData";
+import { Product } from "@/data/mockData";
 import ProductCard from "@/components/ProductCard";
 import Header from "@/components/Header";
 import { Search, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { API_BASE_URL } from "@/api";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 export default function Home() {
   const [search, setSearch] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/products`)
+      .then(res => res.json())
+      .then(data => {
+        // Map _id from backend to id for frontend
+        const mappedData = data.map((p: any) => ({
+          ...p,
+          id: p._id
+        }));
+        setProducts(mappedData);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching products:", err);
+        setLoading(false);
+      });
+  }, []);
+
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (

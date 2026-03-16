@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Shield, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -14,23 +14,49 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false);
   const { login, register, adminLogin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("mode") === "admin") {
+      setIsAdmin(true);
+      setIsRegister(false);
+    }
+  }, [location.search]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { toast.error("Fill all fields"); return; }
 
-    if (isAdmin) {
-      if (adminLogin(email, password)) { toast.success("Welcome Admin!"); navigate("/admin"); }
-      else toast.error("Invalid admin credentials. Use admin@shop.com / admin123");
-    } else if (isRegister) {
-      if (!name) { toast.error("Enter your name"); return; }
-      register(name, email, password);
-      toast.success("Account created!");
-      navigate("/");
-    } else {
-      login(email, password);
-      toast.success("Welcome back!");
-      navigate("/");
+    try {
+      if (isAdmin) {
+        const success = await adminLogin(email, password);
+        if (success) { 
+          toast.success("Welcome Admin!"); 
+          navigate("/admin"); 
+        } else {
+          toast.error("Invalid admin credentials.");
+        }
+      } else if (isRegister) {
+        if (!name) { toast.error("Enter your name"); return; }
+        const success = await register(name, email, password);
+        if (success) {
+          toast.success("Account created!");
+          navigate("/");
+        } else {
+          toast.error("Registration failed.");
+        }
+      } else {
+        const success = await login(email, password);
+        if (success) {
+          toast.success("Welcome back!");
+          navigate("/");
+        } else {
+          toast.error("Login failed. Check your credentials.");
+        }
+      }
+    } catch (error) {
+      toast.error("An error occurred during authentication.");
     }
   };
 

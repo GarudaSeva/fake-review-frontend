@@ -14,6 +14,7 @@ export interface Product {
   rating: number;
   reviewCount: number;
   trustScore: number;
+  status?: string;
 }
 
 export interface Review {

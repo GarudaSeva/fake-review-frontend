@@ -26,6 +26,9 @@ export default function Header() {
           {user?.isAdmin && (
             <Link to="/admin" className="text-sm text-primary transition-colors hover:text-primary/80">Admin Panel</Link>
           )}
+          {!user?.isAdmin && (
+            <Link to="/login?mode=admin" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-primary">Admin Access</Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">

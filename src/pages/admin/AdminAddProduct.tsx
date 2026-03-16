@@ -2,6 +2,7 @@ import AdminLayout from "@/components/AdminLayout";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
+import { API_BASE_URL } from "@/api";
 
 export default function AdminAddProduct() {
   const [name, setName] = useState("");
@@ -9,11 +10,27 @@ export default function AdminAddProduct() {
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !description || !price) { toast.error("Fill all required fields"); return; }
-    toast.success(`Product "${name}" added! (Simulation)`);
-    setName(""); setDescription(""); setPrice(""); setImage("");
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description, price: parseFloat(price), image })
+      });
+
+      if (response.ok) {
+        toast.success(`Product "${name}" added successfully!`);
+        setName(""); setDescription(""); setPrice(""); setImage("");
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to add product");
+      }
+    } catch (err) {
+      toast.error("Connection error");
+    }
   };
 
   return (

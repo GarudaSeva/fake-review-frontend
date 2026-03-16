@@ -15,11 +15,13 @@ import {
   Bot,
   Sparkles,
 } from "lucide-react";
-import { products } from "@/data/mockData";
+import { Product } from "@/data/mockData";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import { toast } from "sonner";
+import { API_BASE_URL } from "@/api";
+import { useState, useEffect } from "react";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -94,9 +96,22 @@ const testimonials = [
 ];
 
 export default function LandingPage() {
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const { addToCart } = useCart();
   const { user } = useAuth();
-  const featuredProducts = products.slice(0, 3);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/products`)
+      .then(res => res.json())
+      .then(data => {
+        const mappedData = data.slice(0, 3).map((p: any) => ({
+          ...p,
+          id: p._id
+        }));
+        setFeaturedProducts(mappedData);
+      })
+      .catch(err => console.error("Error fetching featured products:", err));
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

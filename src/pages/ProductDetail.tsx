@@ -1,59 +1,111 @@
+import { API_BASE_URL } from "@/api";
 import { useParams, Link } from "react-router-dom";
-import { products, analyzeReview } from "@/data/mockData";
-import { useReviews } from "@/context/ReviewContext";
+import { Product, Review } from "@/data/mockData";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import ReviewCard from "@/components/ReviewCard";
-import { Star, ShoppingCart, ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { Star, ShoppingCart, ArrowLeft, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const product = products.find(p => p.id === id);
-  const { reviews, addReview } = useReviews();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [productReviews, setProductReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
-  const { user } = useAuth();
+  const { user, refreshStatus } = useAuth();
   const [reviewText, setReviewText] = useState("");
   const [rating, setRating] = useState(5);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!product) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Product not found</p></div>;
+  useEffect(() => {
+    if (user) refreshStatus();
+  }, []);
 
-  const productReviews = reviews.filter(r => r.productId === product.id);
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // Fetch Product
+        const prodRes = await fetch(`${API_BASE_URL}/products/${id}`);
+        const prodData = await prodRes.json();
+        
+        if (prodRes.ok) {
+          setProduct({ ...prodData, id: prodData._id });
+        }
+
+        // Fetch Reviews
+        const revRes = await fetch(`${API_BASE_URL}/products/${id}/reviews`);
+        const revData = await revRes.json();
+        
+        if (revRes.ok) {
+          setProductReviews(revData.map((r: any) => ({ ...r, id: r._id })));
+        }
+      } catch (err) {
+        console.error("Error fetching product details:", err);
+        toast.error("Failed to load product details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
 
   const handleSubmitReview = async () => {
     if (!user) { toast.error("Please login to submit a review"); return; }
     if (!reviewText.trim()) { toast.error("Write a review first"); return; }
+    if (!id) return;
 
     setSubmitting(true);
-    // Simulate API call delay
-    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const payload = {
+        productId: id,
+        review: reviewText,
+        rating,
+        user: {
+          id: user.id || "anonymous",
+          name: user.name || "Guest",
+          reviews_per_day: 3, // Mock metadata for ML analyzer
+          account_age_days: 200 // Mock metadata for ML analyzer
+        }
+      };
 
-    const analysis = analyzeReview(reviewText);
-    const newReview = {
-      id: "r_" + Date.now(),
-      userId: user.id,
-      userName: user.name,
-      productId: product.id,
-      reviewText,
-      rating,
-      sentiment: analysis.sentiment.sentiment,
-      sentimentConfidence: analysis.sentiment.confidence,
-      fakeReviewLabel: analysis.fake_review_detection.review_label,
-      fakeProbability: analysis.fake_review_detection.fake_probability,
-      userStatus: analysis.user_status,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
+      const response = await fetch(`${API_BASE_URL}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    addReview(newReview);
-    setReviewText("");
-    setRating(5);
-    setSubmitting(false);
-    toast.success("Review analyzed and submitted!");
+      const data = await response.json();
+
+      if (response.ok) {
+        setProductReviews([{ ...data, id: data._id }, ...productReviews]);
+        setReviewText("");
+        setRating(5);
+        toast.success("Review analyzed and submitted!");
+        
+        // Refresh product stats
+        const prodRes = await fetch(`${API_BASE_URL}/products/${id}`);
+        const prodData = await prodRes.json();
+        if (prodRes.ok) setProduct({ ...prodData, id: prodData._id });
+      } else {
+        toast.error(data.error || "Failed to submit review");
+      }
+    } catch (err) {
+      toast.error("Connection error");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
+  if (!product) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Product not found</p></div>;
 
   return (
     <div className="min-h-screen bg-background">
@@ -97,26 +149,37 @@ export default function ProductDetail() {
           {/* Write Review */}
           <div className="mt-6 glass-card p-6">
             <h3 className="font-heading text-lg font-semibold text-foreground">Write a Review</h3>
-            <div className="mt-3 flex items-center gap-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <button key={i} onClick={() => setRating(i + 1)}>
-                  <Star className={`h-5 w-5 cursor-pointer transition-colors ${i < rating ? "fill-primary text-primary" : "text-muted-foreground/30 hover:text-primary/50"}`} />
+            {user?.status && (user.status === "suspicious" || user.status === "bot") ? (
+              <div className="mt-4 rounded-lg bg-destructive/10 p-4 border border-destructive/20">
+                <p className="text-sm text-destructive font-medium">
+                  Reviewing is disabled for your account due to suspicious activity. 
+                  Please contact support if you believe this is a mistake.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="mt-3 flex items-center gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <button key={i} onClick={() => setRating(i + 1)}>
+                      <Star className={`h-5 w-5 cursor-pointer transition-colors ${i < rating ? "fill-primary text-primary" : "text-muted-foreground/30 hover:text-primary/50"}`} />
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={reviewText}
+                  onChange={e => setReviewText(e.target.value)}
+                  placeholder="Share your experience with this product..."
+                  className="mt-3 w-full rounded-lg border border-border bg-secondary/50 px-4 py-3 text-sm text-foreground outline-none focus:border-primary/50 min-h-[100px] resize-none"
+                />
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={submitting}
+                  className="mt-3 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {submitting ? "Analyzing with AI..." : "Submit & Analyze Review"}
                 </button>
-              ))}
-            </div>
-            <textarea
-              value={reviewText}
-              onChange={e => setReviewText(e.target.value)}
-              placeholder="Share your experience with this product..."
-              className="mt-3 w-full rounded-lg border border-border bg-secondary/50 px-4 py-3 text-sm text-foreground outline-none focus:border-primary/50 min-h-[100px] resize-none"
-            />
-            <button
-              onClick={handleSubmitReview}
-              disabled={submitting}
-              className="mt-3 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-            >
-              {submitting ? "Analyzing with AI..." : "Submit & Analyze Review"}
-            </button>
+              </>
+            )}
           </div>
 
           {/* Review List */}
